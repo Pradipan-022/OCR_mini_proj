@@ -35,3 +35,22 @@ async def process_image_ocr(
         ],
         "temperature": 0.1 #low temp for deterministic AI (no guesswork)
     }
+    
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:8000",
+        "X-Title": "FastAPI Gemma OCR"
+    }
+    
+    #async http post request using httpx
+    async with httpx.AsyncClient(timeout = 60.0) as client:
+        response = await client.post(OPENROUTER_URL, headers=headers, json=payload)
+        
+        if response.status_code != 200:
+            error_data = response.json()
+            error_msg = error_data.get("error", {}).get("message", "OpenRouter API error")
+            raise Exception(f"Openrouter Error ({response.status_code}): {error_msg}")
+        
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
