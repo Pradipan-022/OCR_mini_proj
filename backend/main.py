@@ -1,11 +1,12 @@
 import base64
+import traceback
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
-from config import MODEL_NAME
-from models import OCR_Response, Base64_OCR_Request
-from ocr import process_image_ocr
+from backend.config import MODEL_NAME
+from backend.models import OCR_Response, Base64_OCR_Request
+from backend.ocr import process_image_ocr
 
 app = FastAPI(
     title = "Gemma OCR Engine",
@@ -25,11 +26,12 @@ app.add_middleware(
 async def health_check():
     return {"status": "online", "model": MODEL_NAME}
 
-@app.post("api/v1/ocr/upload", response_model= OCR_Response)
+@app.post("/api/v1/ocr/upload", response_model= OCR_Response)
 async def ocr_from_file(
     file: UploadFile = File(...),
     prompt: Optional[str] = Form(None)
 ):
+    
     """Endpoint for drag and drop file upload (multipart/form-data)."""
     if not file.content_type.startswith("image/"):
         raise HTTPException(
@@ -46,6 +48,7 @@ async def ocr_from_file(
         return OCR_Response(success= True, text= extracted_text, model_used= MODEL_NAME)
     
     except Exception as e:
+        traceback.print_exc()  # Prints the full error traceback in your terminal
         raise HTTPException(
             status_code= status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail= str(e)

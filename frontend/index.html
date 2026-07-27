@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemma OCR Reader</title>
+    <!-- Tailwind CSS for beautiful styling without writing custom CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js to convert the AI's Markdown text into formatted HTML -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-8 font-sans">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Gemma OCR Reader</h1>
+        <p class="text-gray-500 mb-8">Upload an image of text, and the AI will extract it for you.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- LEFT COLUMN: Input Area -->
+            <div class="flex flex-col gap-4">
+                
+                <!-- Drag & Drop Zone -->
+                <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition cursor-pointer">
+                    <p class="text-gray-600 mb-2">Drag and drop an image here</p>
+                    <p class="text-sm text-gray-400 mb-4">or</p>
+                    <input type="file" id="file-input" class="hidden" accept="image/png, image/jpeg, image/webp" />
+                    <button onclick="document.getElementById('file-input').click()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">
+                        Browse Files
+                    </button>
+                </div>
+
+                <!-- Custom Prompt Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Custom Instructions (Optional)</label>
+                    <input type="text" id="prompt-input" placeholder="e.g., Only extract the total price" 
+                           class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <!-- Submit Button -->
+                <button id="submit-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded shadow hover:bg-green-700 disabled:bg-gray-400 transition">
+                    Extract Text
+                </button>
+            </div>
+
+            <!-- RIGHT COLUMN: Output Area -->
+            <div class="flex flex-col gap-4">
+                
+                <!-- Image Preview -->
+                <div class="border border-gray-200 rounded-lg h-48 flex items-center justify-center bg-gray-50 overflow-hidden">
+                    <img id="image-preview" class="hidden max-h-full object-contain" alt="Preview" />
+                    <span id="preview-placeholder" class="text-gray-400">No image selected</span>
+                </div>
+
+                <!-- Loading Spinner (Hidden by default) -->
+                <div id="loading" class="hidden text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+                    <p class="text-blue-600 mt-2 font-medium">Gemma is reading the image (may take a few seconds)...</p>
+                </div>
+
+                <!-- Result Box (Hidden by default) -->
+                <div id="result-box" class="hidden border border-gray-200 rounded-lg p-4 bg-gray-50 h-full overflow-y-auto">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Extracted Text:</h3>
+                    <!-- Markdown text will be injected here -->
+                    <div id="extracted-text" class="prose prose-sm max-w-none text-gray-800"></div>
+                </div>
+
+                <!-- Error Box (Hidden by default) -->
+                <div id="error-box" class="hidden border border-red-200 rounded-lg p-4 bg-red-50 text-red-600">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JavaScript to handle logic -->
+    <script>
+        // 1. Grab all the HTML elements we need to interact with
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const imagePreview = document.getElementById('image-preview');
+        const previewPlaceholder = document.getElementById('preview-placeholder');
+        const submitBtn = document.getElementById('submit-btn');
+        const promptInput = document.getElementById('prompt-input');
+        const resultBox = document.getElementById('result-box');
+        const extractedText = document.getElementById('extracted-text');
+        const loading = document.getElementById('loading');
+        const errorBox = document.getElementById('error-box');
+
+        let selectedFile = null;
+
+        // 2. Handle File Selection (when user clicks 'Browse Files')
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // 3. Handle Drag & Drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('bg-blue-50', 'border-blue-400');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('bg-blue-50', 'border-blue-400');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('bg-blue-50', 'border-blue-400');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        // 4. Show Image Preview
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                showError("Please select a valid image file.");
+                return;
+            }
+            selectedFile = file;
+            hideError();
+            
+            // Convert file to a temporary URL so the browser can display it
+            const imageUrl = URL.createObjectURL(file);
+            imagePreview.src = imageUrl;
+            imagePreview.classList.remove('hidden');
+            previewPlaceholder.classList.add('hidden');
+        }
+
+        // 5. Submit to Backend (The "Waiter" taking the order to the "Kitchen")
+        submitBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showError("Please upload an image first.");
+                return;
+            }
+
+            // Hide old results, show loading spinner
+            resultBox.classList.add('hidden');
+            hideError();
+            loading.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            // Package the file and prompt into a form
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            if (promptInput.value.trim() !== "") {
+                formData.append('prompt', promptInput.value);
+            }
+
+            try {
+                // Send over the network to your FastAPI backend
+                const response = await fetch('http://localhost:8000/api/v1/ocr/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error("Backend server error. Is FastAPI running?");
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Convert the AI's Markdown text into HTML and display it
+                    extractedText.innerHTML = marked.parse(data.text);
+                    resultBox.classList.remove('hidden');
+                } else {
+                    throw new Error(data.error || "Failed to extract text");
+                }
+
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                // Stop loading spinner
+                loading.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.classList.remove('hidden');
+        }
+        function hideError() {
+            errorBox.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

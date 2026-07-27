@@ -1,6 +1,6 @@
 import base64
 import httpx
-from config import MODEL_NAME, OPENROUTER_API_KEY, OPENROUTER_URL
+from backend.config import MODEL_NAME, OPENROUTER_API_KEY, OPENROUTER_URL
 
 DEFAULT_PROMPT = (
     "Extract all legible text from this image."
@@ -16,7 +16,7 @@ async def process_image_ocr(
     """Encodes raw image bytes into base64 and sends an HTTP request to OpenRouter."""
     
     # Converts raw image data to Base64 data URI
-    encoded_b64 = base64.b64decode(image_bytes).decode("utf-8")
+    encoded_b64 = base64.b64encode(image_bytes).decode("utf-8")
     data_uri = f"data:{mime_type}; base64, {encoded_b64}"
     
     #build payload as per openrouter instructions
