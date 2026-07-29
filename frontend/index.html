@@ -1,190 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemma OCR Reader</title>
-    <!-- Tailwind CSS for beautiful styling without writing custom CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Marked.js to convert the AI's Markdown text into formatted HTML -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Engine OCR Studio</title>
+  <!-- Tailwind CSS via CDN for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen p-8 font-sans">
+<body class="bg-gray-900 text-gray-100 min-h-screen py-10 px-4 flex justify-center">
 
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">Gemma OCR Reader</h1>
-        <p class="text-gray-500 mb-8">Upload an image of text, and the AI will extract it for you.</p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            <!-- LEFT COLUMN: Input Area -->
-            <div class="flex flex-col gap-4">
-                
-                <!-- Drag & Drop Zone -->
-                <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition cursor-pointer">
-                    <p class="text-gray-600 mb-2">Drag and drop an image here</p>
-                    <p class="text-sm text-gray-400 mb-4">or</p>
-                    <input type="file" id="file-input" class="hidden" accept="image/png, image/jpeg, image/webp" />
-                    <button onclick="document.getElementById('file-input').click()" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700">
-                        Browse Files
-                    </button>
-                </div>
-
-                <!-- Custom Prompt Input -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Custom Instructions (Optional)</label>
-                    <input type="text" id="prompt-input" placeholder="e.g., Only extract the total price" 
-                           class="w-full border border-gray-300 rounded px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-
-                <!-- Submit Button -->
-                <button id="submit-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded shadow hover:bg-green-700 disabled:bg-gray-400 transition">
-                    Extract Text
-                </button>
-            </div>
-
-            <!-- RIGHT COLUMN: Output Area -->
-            <div class="flex flex-col gap-4">
-                
-                <!-- Image Preview -->
-                <div class="border border-gray-200 rounded-lg h-48 flex items-center justify-center bg-gray-50 overflow-hidden">
-                    <img id="image-preview" class="hidden max-h-full object-contain" alt="Preview" />
-                    <span id="preview-placeholder" class="text-gray-400">No image selected</span>
-                </div>
-
-                <!-- Loading Spinner (Hidden by default) -->
-                <div id="loading" class="hidden text-center py-4">
-                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-                    <p class="text-blue-600 mt-2 font-medium">Gemma is reading the image (may take a few seconds)...</p>
-                </div>
-
-                <!-- Result Box (Hidden by default) -->
-                <div id="result-box" class="hidden border border-gray-200 rounded-lg p-4 bg-gray-50 h-full overflow-y-auto">
-                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Extracted Text:</h3>
-                    <!-- Markdown text will be injected here -->
-                    <div id="extracted-text" class="prose prose-sm max-w-none text-gray-800"></div>
-                </div>
-
-                <!-- Error Box (Hidden by default) -->
-                <div id="error-box" class="hidden border border-red-200 rounded-lg p-4 bg-red-50 text-red-600">
-                </div>
-            </div>
-
-        </div>
+  <div class="w-full max-w-2xl bg-gray-800 rounded-xl shadow-2xl p-6 border border-gray-700 flex flex-col gap-6">
+    
+    <!-- Header -->
+    <div class="border-b border-gray-700 pb-4">
+      <h1 class="text-2xl font-bold text-blue-400">OCR Processing Engine</h1>
+      <p class="text-sm text-gray-400 mt-1">Select an OCR engine, upload an image, and extract text.</p>
     </div>
 
-    <!-- JavaScript to handle logic -->
-    <script>
-        // 1. Grab all the HTML elements we need to interact with
-        const fileInput = document.getElementById('file-input');
-        const dropZone = document.getElementById('drop-zone');
-        const imagePreview = document.getElementById('image-preview');
-        const previewPlaceholder = document.getElementById('preview-placeholder');
-        const submitBtn = document.getElementById('submit-btn');
-        const promptInput = document.getElementById('prompt-input');
-        const resultBox = document.getElementById('result-box');
-        const extractedText = document.getElementById('extracted-text');
-        const loading = document.getElementById('loading');
-        const errorBox = document.getElementById('error-box');
+    <!-- 1. Engine Selection Buttons -->
+    <div>
+      <label class="block text-sm font-medium text-gray-300 mb-2">Select OCR Engine</label>
+      <div class="grid grid-cols-3 gap-3">
+        <button
+          id="btn-gemma"
+          type="button"
+          onclick="selectEngine('gemma')"
+          class="py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-blue-500 bg-blue-600/20 text-blue-300">
+          <span>Gemma</span>
+          <span class="text-xs font-normal">(Cloud API)</span>
+        </button>
 
-        let selectedFile = null;
+        <button
+          id="btn-tesseract"
+          type="button"
+          onclick="selectEngine('tesseract')"
+          class="py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
+          <span>Tesseract</span>
+          <span class="text-xs font-normal">(Local C++)</span>
+        </button>
 
-        // 2. Handle File Selection (when user clicks 'Browse Files')
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
-            }
+        <button
+          id="btn-easyocr"
+          type="button"
+          onclick="selectEngine('easyocr')"
+          class="py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
+          <span>EasyOCR</span>
+          <span class="text-xs font-normal">(Local PyTorch)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. File Upload / Drag-and-Drop Area -->
+    <div>
+      <label class="block text-sm font-medium text-gray-300 mb-2">Upload Image</label>
+      <div 
+        id="drop-zone"
+        onclick="document.getElementById('file-input').click()"
+        class="border-2 border-dashed border-gray-600 hover:border-blue-500 bg-gray-900/50 rounded-lg p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2">
+        
+        <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 002-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        
+        <p class="text-sm text-gray-300">
+          <span class="font-semibold text-blue-400">Click to upload</span> or drag and drop
+        </p>
+        <p class="text-xs text-gray-500">PNG, JPG, JPEG, WEBP</p>
+        
+        <input id="file-input" type="file" accept="image/*" class="hidden" onchange="handleFileSelect(event)" />
+      </div>
+
+      <!-- Image Preview Thumbnail -->
+      <div id="preview-container" class="hidden mt-3 flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-700">
+        <div class="flex items-center gap-3 overflow-hidden">
+          <img id="preview-img" class="w-12 h-12 object-cover rounded" src="" alt="Preview" />
+          <span id="file-name" class="text-sm text-gray-300 truncate max-w-xs"></span>
+        </div>
+        <button onclick="clearFile()" class="text-xs text-red-400 hover:text-red-300 font-medium">Remove</button>
+      </div>
+    </div>
+
+    <!-- 3. Optional Custom Prompt -->
+    <div id="prompt-wrapper">
+      <label class="block text-sm font-medium text-gray-300 mb-2">
+        Custom Prompt <span class="text-xs text-gray-500 font-normal">(Optional)</span>
+      </label>
+      <input 
+        id="prompt-input" 
+        type="text" 
+        placeholder="e.g., Extract only the table data or summarize text..." 
+        class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-600" 
+      />
+      <p id="prompt-note" class="hidden text-xs text-amber-400 mt-1">
+        * Note: Local engines (Tesseract & EasyOCR) do not support AI prompt instructions.
+      </p>
+    </div>
+
+    <!-- 4. Submit Button -->
+    <button 
+      id="submit-btn" 
+      onclick="submitOCR()" 
+      class="w-full py-3 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-all flex items-center justify-center gap-2">
+      <span id="btn-text">Extract Text</span>
+      <div id="btn-spinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+    </button>
+
+    <!-- Error Alert Banner -->
+    <div id="error-banner" class="hidden bg-red-900/40 border border-red-500 text-red-300 text-sm p-3 rounded-lg"></div>
+
+    <!-- 5. Output Result Display -->
+    <div id="output-wrapper" class="hidden flex flex-col gap-2">
+      <div class="flex justify-between items-center">
+        <label class="text-sm font-medium text-gray-300">Extracted Text</label>
+        <span id="model-badge" class="text-xs font-mono bg-gray-700 text-gray-300 px-2 py-0.5 rounded"></span>
+      </div>
+      
+      <div class="relative">
+        <textarea 
+          id="output-text" 
+          readonly 
+          rows="8" 
+          class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm text-gray-200 font-mono focus:outline-none resize-y"></textarea>
+        
+        <button 
+          onclick="copyToClipboard()" 
+          class="absolute top-2 right-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 text-xs text-gray-300 px-2 py-1 rounded shadow transition-all">
+          Copy
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript Frontend Logic -->
+  <script>
+    // State Variables
+    let selectedEngine = "gemma"; // default engine
+    let selectedFile = null;
+    const API_BASE_URL = "http://localhost:8000";
+
+    // Toggle between Gemma, Tesseract, and EasyOCR engines
+    function selectEngine(engine) {
+      selectedEngine = engine;
+      const gemmaBtn = document.getElementById("btn-gemma");
+      const tesseractBtn = document.getElementById("btn-tesseract");
+      const easyocrBtn = document.getElementById("btn-easyocr");
+      const promptInput = document.getElementById("prompt-input");
+      const promptNote = document.getElementById("prompt-note");
+
+      const activeClass = "py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-blue-500 bg-blue-600/20 text-blue-300";
+      const inactiveClass = "py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500";
+
+      // Dynamically apply active/inactive styles to all 3 buttons
+      gemmaBtn.className = (engine === "gemma") ? activeClass : inactiveClass;
+      tesseractBtn.className = (engine === "tesseract") ? activeClass : inactiveClass;
+      easyocrBtn.className = (engine === "easyocr") ? activeClass : inactiveClass;
+
+      // Disable custom prompts for local engines
+      if (engine === "gemma") {
+        promptInput.disabled = false;
+        promptInput.classList.remove("opacity-50", "cursor-not-allowed");
+        promptNote.classList.add("hidden");
+      } else {
+        promptInput.disabled = true;
+        promptInput.classList.add("opacity-50", "cursor-not-allowed");
+        promptNote.classList.remove("hidden");
+      }
+    }
+
+    // Handle File Selection
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (file) setFile(file);
+    }
+
+    function setFile(file) {
+      if (!file.type.startsWith("image/")) {
+        showError("Please select a valid image file (PNG, JPEG, etc.).");
+        return;
+      }
+      selectedFile = file;
+      document.getElementById("file-name").textContent = file.name;
+      document.getElementById("preview-img").src = URL.createObjectURL(file);
+      document.getElementById("preview-container").classList.remove("hidden");
+      hideError();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      document.getElementById("file-input").value = "";
+      document.getElementById("preview-container").classList.add("hidden");
+    }
+
+    // Drag and Drop Listeners
+    const dropZone = document.getElementById("drop-zone");
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("border-blue-500"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("border-blue-500"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("border-blue-500");
+      if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+    });
+
+    // Send HTTP POST request to FastAPI backend
+    async function submitOCR() {
+      hideError();
+      if (!selectedFile) {
+        showError("Please upload an image before submitting.");
+        return;
+      }
+
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("engine", selectedEngine);
+      
+      const promptValue = document.getElementById("prompt-input").value.trim();
+      if (promptValue && selectedEngine === "gemma") {
+        formData.append("prompt", promptValue);
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/ocr/upload`, {
+          method: "POST",
+          body: formData,
         });
 
-        // 3. Handle Drag & Drop
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('bg-blue-50', 'border-blue-400');
-        });
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('bg-blue-50', 'border-blue-400');
-        });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-blue-50', 'border-blue-400');
-            if (e.dataTransfer.files.length > 0) {
-                handleFile(e.dataTransfer.files[0]);
-            }
-        });
+        const data = await response.json();
 
-        // 4. Show Image Preview
-        function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                showError("Please select a valid image file.");
-                return;
-            }
-            selectedFile = file;
-            hideError();
-            
-            // Convert file to a temporary URL so the browser can display it
-            const imageUrl = URL.createObjectURL(file);
-            imagePreview.src = imageUrl;
-            imagePreview.classList.remove('hidden');
-            previewPlaceholder.classList.add('hidden');
+        if (!response.ok) {
+          throw new Error(data.detail || "Server error occurred while processing image.");
         }
 
-        // 5. Submit to Backend (The "Waiter" taking the order to the "Kitchen")
-        submitBtn.addEventListener('click', async () => {
-            if (!selectedFile) {
-                showError("Please upload an image first.");
-                return;
-            }
+        // Display results
+        document.getElementById("output-text").value = data.text;
+        document.getElementById("model-badge").textContent = `Engine: ${data.model_used}`;
+        document.getElementById("output-wrapper").classList.remove("hidden");
 
-            // Hide old results, show loading spinner
-            resultBox.classList.add('hidden');
-            hideError();
-            loading.classList.remove('hidden');
-            submitBtn.disabled = true;
+      } catch (err) {
+        showError(err.message || "Failed to connect to FastAPI server. Make sure main.py is running.");
+      } finally {
+        setLoading(false);
+      }
+    }
 
-            // Package the file and prompt into a form
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            if (promptInput.value.trim() !== "") {
-                formData.append('prompt', promptInput.value);
-            }
+    // Helper Utilities
+    function setLoading(isLoading) {
+      const submitBtn = document.getElementById("submit-btn");
+      const btnText = document.getElementById("btn-text");
+      const btnSpinner = document.getElementById("btn-spinner");
 
-            try {
-                // Send over the network to your FastAPI backend
-                const response = await fetch('http://localhost:8000/api/v1/ocr/upload', {
-                    method: 'POST',
-                    body: formData
-                });
+      submitBtn.disabled = isLoading;
+      if (isLoading) {
+        btnText.textContent = "Processing...";
+        btnSpinner.classList.remove("hidden");
+        submitBtn.classList.add("opacity-80", "cursor-wait");
+      } else {
+        btnText.textContent = "Extract Text";
+        btnSpinner.classList.add("hidden");
+        submitBtn.classList.remove("opacity-80", "cursor-wait");
+      }
+    }
 
-                if (!response.ok) {
-                    throw new Error("Backend server error. Is FastAPI running?");
-                }
+    function showError(msg) {
+      const banner = document.getElementById("error-banner");
+      banner.textContent = msg;
+      banner.classList.remove("hidden");
+    }
 
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Convert the AI's Markdown text into HTML and display it
-                    extractedText.innerHTML = marked.parse(data.text);
-                    resultBox.classList.remove('hidden');
-                } else {
-                    throw new Error(data.error || "Failed to extract text");
-                }
+    function hideError() {
+      document.getElementById("error-banner").classList.add("hidden");
+    }
 
-            } catch (err) {
-                showError(err.message);
-            } finally {
-                // Stop loading spinner
-                loading.classList.add('hidden');
-                submitBtn.disabled = false;
-            }
-        });
-
-        function showError(msg) {
-            errorBox.textContent = msg;
-            errorBox.classList.remove('hidden');
-        }
-        function hideError() {
-            errorBox.classList.add('hidden');
-        }
-    </script>
+    function copyToClipboard() {
+      const text = document.getElementById("output-text").value;
+      if (text) {
+        navigator.clipboard.writeText(text);
+        alert("Text copied to clipboard!");
+      }
+    }
+  </script>
 </body>
 </html>
