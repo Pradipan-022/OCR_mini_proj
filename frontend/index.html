@@ -20,32 +20,41 @@
     <!-- 1. Engine Selection Buttons -->
     <div>
       <label class="block text-sm font-medium text-gray-300 mb-2">Select OCR Engine</label>
-      <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
           id="btn-gemma"
           type="button"
           onclick="selectEngine('gemma')"
-          class="py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-blue-500 bg-blue-600/20 text-blue-300">
+          class="py-3 px-3 rounded-lg font-semibold border text-xs transition-all flex flex-col items-center gap-1 border-blue-500 bg-blue-600/20 text-blue-300">
           <span>Gemma</span>
-          <span class="text-xs font-normal">(Cloud API)</span>
+          <span class="text-[10px] font-normal">(Cloud API)</span>
         </button>
 
         <button
           id="btn-tesseract"
           type="button"
           onclick="selectEngine('tesseract')"
-          class="py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
+          class="py-3 px-3 rounded-lg font-semibold border text-xs transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
           <span>Tesseract</span>
-          <span class="text-xs font-normal">(Local C++)</span>
+          <span class="text-[10px] font-normal">(Local C++)</span>
         </button>
 
         <button
           id="btn-easyocr"
           type="button"
           onclick="selectEngine('easyocr')"
-          class="py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
+          class="py-3 px-3 rounded-lg font-semibold border text-xs transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
           <span>EasyOCR</span>
-          <span class="text-xs font-normal">(Local PyTorch)</span>
+          <span class="text-[10px] font-normal">(Local PyTorch)</span>
+        </button>
+
+        <button
+          id="btn-paddleocr"
+          type="button"
+          onclick="selectEngine('paddleocr')"
+          class="py-3 px-3 rounded-lg font-semibold border text-xs transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500">
+          <span>PaddleOCR</span>
+          <span class="text-[10px] font-normal">(Local CPU)</span>
         </button>
       </div>
     </div>
@@ -92,7 +101,7 @@
         class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500 placeholder-gray-600" 
       />
       <p id="prompt-note" class="hidden text-xs text-amber-400 mt-1">
-        * Note: Local engines (Tesseract & EasyOCR) do not support AI prompt instructions.
+        * Note: Local engines (Tesseract, EasyOCR & PaddleOCR) do not support AI prompt instructions.
       </p>
     </div>
 
@@ -139,22 +148,24 @@
     let selectedFile = null;
     const API_BASE_URL = "http://localhost:8000";
 
-    // Toggle between Gemma, Tesseract, and EasyOCR engines
+    // Toggle between Gemma, Tesseract, EasyOCR, and PaddleOCR engines
     function selectEngine(engine) {
       selectedEngine = engine;
       const gemmaBtn = document.getElementById("btn-gemma");
       const tesseractBtn = document.getElementById("btn-tesseract");
       const easyocrBtn = document.getElementById("btn-easyocr");
+      const paddleocrBtn = document.getElementById("btn-paddleocr");
       const promptInput = document.getElementById("prompt-input");
       const promptNote = document.getElementById("prompt-note");
 
-      const activeClass = "py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-blue-500 bg-blue-600/20 text-blue-300";
-      const inactiveClass = "py-3 px-4 rounded-lg font-semibold border text-sm transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500";
+      const activeClass = "py-3 px-3 rounded-lg font-semibold border text-xs transition-all flex flex-col items-center gap-1 border-blue-500 bg-blue-600/20 text-blue-300";
+      const inactiveClass = "py-3 px-3 rounded-lg font-semibold border text-xs transition-all flex flex-col items-center gap-1 border-gray-600 bg-gray-700/40 text-gray-400 hover:border-gray-500";
 
-      // Dynamically apply active/inactive styles to all 3 buttons
+      // Dynamically apply active/inactive styles to all 4 buttons
       gemmaBtn.className = (engine === "gemma") ? activeClass : inactiveClass;
       tesseractBtn.className = (engine === "tesseract") ? activeClass : inactiveClass;
       easyocrBtn.className = (engine === "easyocr") ? activeClass : inactiveClass;
+      paddleocrBtn.className = (engine === "paddleocr") ? activeClass : inactiveClass;
 
       // Disable custom prompts for local engines
       if (engine === "gemma") {

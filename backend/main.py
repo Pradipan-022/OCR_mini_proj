@@ -7,6 +7,7 @@ from typing import Optional
 import numpy as np
 import pytesseract
 import easyocr
+from paddleocr import PaddleOCR
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,9 +18,10 @@ from backend.models import Base64_OCR_Request, OCR_Response
 from backend.ocr import process_image_ocr
 
 
-# --- 1. Initialize Global EasyOCR Reader (Loaded once into RAM) ---
-# Set gpu=False for standard CPU execution on Linux Mint
+# --- 1. Initialize Global Local Readers (Loaded once into RAM) ---
+# Set gpu=False for CPU execution
 easyocr_reader = easyocr.Reader(['en'], gpu=False)
+paddle_ocr_reader = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=False)
 
 
 # --- 2. Synchronous Helper Functions for Local Engines ---
@@ -32,20 +34,34 @@ def run_tesseract_ocr(image_bytes: bytes) -> str:
 
 def run_easyocr_ocr(image_bytes: bytes) -> str:
     """CPU-bound PyTorch task for local EasyOCR execution."""
-    # Convert image bytes to a RGB PIL image, then to a NumPy array for OpenCV/PyTorch
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image_np = np.array(image)
+    results = easyocr_reader.readtext(image_np, detail=0, paragraph=True)
+    return "\n".join(results).strip()
+
+
+def run_paddleocr_ocr(image_bytes: bytes) -> str:
+    """CPU-bound task for local PaddleOCR execution."""
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     image_np = np.array(image)
 
-    # detail=0 returns plain text strings; paragraph=True groups nearby lines together
-    results = easyocr_reader.readtext(image_np, detail=0, paragraph=True)
-    return "\n".join(results).strip()
+    # paddleocr returns: [[[box_coords], ("extracted_text", confidence_score)], ...]
+    results = paddle_ocr_reader.ocr(image_np, cls=True)
+
+    extracted_lines = []
+    if results and results[0]:
+        for line in results[0]:
+            if line and len(line) >= 2:
+                extracted_lines.append(line[1][0])
+
+    return "\n".join(extracted_lines).strip()
 
 
 # --- 3. FastAPI Setup ---
 app = FastAPI(
     title="Multi-Engine OCR API",
-    description="Asynchronous FastAPI OCR supporting Gemma (Cloud), Tesseract (Local C++), and EasyOCR (Local PyTorch).",
-    version="3.0.0"
+    description="Asynchronous FastAPI OCR supporting Gemma (Cloud), Tesseract (Local C++), EasyOCR (Local PyTorch), and PaddleOCR (Local CPU).",
+    version="3.1.0"
 )
 
 app.add_middleware(
@@ -62,7 +78,7 @@ app.add_middleware(
 async def health_check():
     return {
         "status": "online",
-        "available_engines": ["gemma", "tesseract", "easyocr"],
+        "available_engines": ["gemma", "tesseract", "easyocr", "paddleocr"],
         "gemma_model": MODEL_NAME
     }
 
@@ -92,6 +108,10 @@ async def ocr_from_file(
         elif selected_engine == "tesseract":
             extracted_text = await asyncio.to_thread(run_tesseract_ocr, contents)
             used_model = "Tesseract OCR (Local C++)"
+
+        elif selected_engine == "paddleocr":
+            extracted_text = await asyncio.to_thread(run_paddleocr_ocr, contents)
+            used_model = "PaddleOCR (Local CPU)"
 
         else:
             extracted_text = await process_image_ocr(
@@ -137,6 +157,10 @@ async def ocr_from_base64(payload: Base64_OCR_Request):
         elif selected_engine == "tesseract":
             extracted_text = await asyncio.to_thread(run_tesseract_ocr, image_bytes)
             used_model = "Tesseract OCR (Local C++)"
+
+        elif selected_engine == "paddleocr":
+            extracted_text = await asyncio.to_thread(run_paddleocr_ocr, image_bytes)
+            used_model = "PaddleOCR (Local CPU)"
 
         else:
             extracted_text = await process_image_ocr(
